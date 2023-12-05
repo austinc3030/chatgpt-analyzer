@@ -26,30 +26,31 @@ def split_into_chunks(text, chunk_size):
     return [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
 
 def analyze_code_with_chatgpt_in_session(code_chunks):
-    """Analyze code with ChatGPT in a single session and return the session ID."""
+    """Analyze code with ChatGPT and maintain conversation history."""
     messages = [{"role": "system", "content": "Analyze the following Python code."}]
     for chunk in code_chunks:
         messages.append({"role": "user", "content": chunk})
-        messages.append({"role": "assistant", "content": ""})  # Placeholder for response
+        # Send each chunk and get response
+        response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=messages)
+        messages.append({"role": "assistant", "content": response.choices[0].message['content']})
 
+    return messages[-1]['content'], messages  # Return last response and all messages
+
+def resume_session_with_new_message(messages, new_message):
+    """Resume the conversation with a new message and existing history."""
+    messages.append({"role": "user", "content": new_message})
     response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=messages)
-    session_id = response['choices'][0]['session_id']
-    analysis_result = response.choices[0].message['content']
-    return analysis_result, session_id
-
-def resume_session_with_new_message(session_id, new_message):
-    """Resume the session with a new message."""
-    response = openai.ChatCompletion.create(model="gpt-3.5-turbo", session_id=session_id, messages=[{"role": "user", "content": new_message}, {"role": "assistant", "content": ""}])
+    messages.append({"role": "assistant", "content": response.choices[0].message['content']})
     return response.choices[0].message['content']
 
-def interactive_chat(session_id):
-    """Interactive chat with the ChatGPT session."""
+def interactive_chat(messages):
+    """Interactive chat with the ChatGPT using conversation history."""
     print("\nYou can now start interacting with ChatGPT about the code. Type 'exit' to end the session.\n")
     while True:
         user_input = input("Ask ChatGPT: ")
         if user_input.lower() == 'exit':
             break
-        response = resume_session_with_new_message(session_id, user_input)
+        response = resume_session_with_new_message(messages, user_input)
         print("ChatGPT:", response)
 
 def main():
@@ -64,10 +65,10 @@ def main():
     project_code = scan_and_read_python_files(args.project_directory)
     code_chunks = split_into_chunks(project_code, 1000)
 
-    analysis_result, session_id = analyze_code_with_chatgpt_in_session(code_chunks)
+    analysis_result, messages = analyze_code_with_chatgpt_in_session(code_chunks)
     print("Analysis Result:\n", analysis_result)
 
-    interactive_chat(session_id)
+    interactive_chat(messages)
 
 if __name__ == "__main__":
     main()
