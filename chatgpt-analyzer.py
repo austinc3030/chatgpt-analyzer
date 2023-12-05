@@ -1,7 +1,9 @@
 #!/bin/python
 
 import os
-import openai
+from openai import OpenAI
+
+client = OpenAI(api_key=get_api_key(api_key_file_path))
 import argparse
 
 def get_api_key(file_path):
@@ -32,10 +34,8 @@ def analyze_code_with_chatgpt_in_session(code_chunks):
         messages.append({"role": "user", "content": chunk})
         messages.append({"role": "assistant", "content": ""})  # Placeholder for response
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4.0-chat",
-        messages=messages
-    )
+    response = client.chat.completions.create(model="gpt-4.0-chat",
+    messages=messages)
 
     session_id = response['choices'][0]['session_id']
     analysis_result = response.choices[0].message['content']
@@ -43,11 +43,9 @@ def analyze_code_with_chatgpt_in_session(code_chunks):
 
 def resume_session_with_new_message(session_id, new_message):
     """Resume the session with a new message."""
-    response = openai.ChatCompletion.create(
-        model="gpt-4.0-chat",
-        session_id=session_id,
-        messages=[{"role": "user", "content": new_message}, {"role": "assistant", "content": ""}]
-    )
+    response = client.chat.completions.create(model="gpt-4.0-chat",
+    session_id=session_id,
+    messages=[{"role": "user", "content": new_message}, {"role": "assistant", "content": ""}])
 
     return response.choices[0].message['content']
 
@@ -71,7 +69,6 @@ def main():
 
     # Construct the path to the .openai file in the user's home directory
     api_key_file_path = os.path.expanduser('~/.openai')
-    openai.api_key = get_api_key(api_key_file_path)
 
     project_code = scan_and_read_python_files(args.project_directory)
     code_chunks = split_into_chunks(project_code, 2000)
